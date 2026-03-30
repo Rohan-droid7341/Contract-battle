@@ -27,6 +27,7 @@ contract GalacticRegistry {
         // REQUIRE: The name must not be an empty string ""
         // Hint: bytes(_name).length should be greater than 0
         bla bla bla hehehehehhe
+        another test for another check 
 
         // REQUIRE: The msg.sender must NOT have registered before
         // Check your 'hasRegistered' mapping
