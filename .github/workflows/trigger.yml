@@ -16,9 +16,19 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Run Public Local Tests
+        id: test
+        continue-on-error: true
         run: forge test -vv
         
-      - name: Step Summary
+      - name: Step Summary (Success)
+        if: steps.test.outcome == 'success'
         run: |
           echo "## Local Tests Passed! 🚀" >> $GITHUB_STEP_SUMMARY
           echo "If you haven't already, **Open a Pull Request** to the original Master repository to awaken the Central Judge!" >> $GITHUB_STEP_SUMMARY
+
+      - name: Step Summary (Failure)
+        if: steps.test.outcome == 'failure'
+        run: |
+          echo "## Local Tests Failing 🛑" >> $GITHUB_STEP_SUMMARY
+          echo "Your initial code hasn't passed the public tests yet! This is completely normal for a new mission. Implement the correct logic in \`src/Level1.sol\` until \`forge test\` passes locally." >> $GITHUB_STEP_SUMMARY
+          exit 1
