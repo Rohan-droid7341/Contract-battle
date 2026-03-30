@@ -137,5 +137,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.pull_request.number,
-              body: `🛑 **ACCESS DENIED**.\n\nYour code successfully executed the public local tests locally, but it failed one or more hidden tests injected by the Central Judge.\n\nReview the "Execute The Judge" Logs above to see exactly where your contract reverted and refine your strategy.`
+              body: `🛑 **ACCESS DENIED**.\n\nYour code did not pass the Central Judge evaluation.\n\nThis could be because your code still fails the public tests, or because you missed an edge case in the hidden tests! Review the "Execute The Judge" Logs above to see exactly where your contract reverted.`
             });
