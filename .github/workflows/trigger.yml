@@ -1,0 +1,24 @@
+name: "Player Local Tests"
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  run_public_tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Run Public Local Tests
+        run: forge test -vv
+        
+      - name: Step Summary
+        run: |
+          echo "## Local Tests Passed! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "If you haven't already, **Open a Pull Request** to the original Master repository to awaken the Central Judge!" >> $GITHUB_STEP_SUMMARY

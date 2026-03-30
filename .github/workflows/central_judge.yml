@@ -1,0 +1,141 @@
+name: "Central Judge: Secret Evaluation"
+
+# Runs securely in the MASTER repository when a player opens a PR from their fork
+on:
+  pull_request_target:
+    branches:
+      - main
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # To comment on the PR
+      contents: read       # Master code access
+    steps:
+      - name: Checkout Player's Fork
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          # Use a PAT instead of GITHUB_TOKEN so we have permission to push changes back to the fork
+          token: ${{ secrets.MASTER_PAT }}
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Fetch Secret Tests
+        env:
+          LEVEL_1_SECRET_URL: ${{ secrets.LEVEL_1_SECRET_URL }}
+        run: |
+          echo "Fetching secret test suite from Repository Secret..."
+          mkdir -p test-secrets
+          
+          if [ -z "$LEVEL_1_SECRET_URL" ]; then
+            echo "Error: LEVEL_1_SECRET_URL is not set in Master Repository Secrets!"
+            exit 1
+          fi
+          
+          curl -sL "$LEVEL_1_SECRET_URL" > test-secrets/Level1Secret.t.sol
+
+      - name: Execute The Judge (Secret Tests)
+        id: auto_judge
+        run: |
+          echo "Compiling and running secret tests against player's code..."
+          forge test --match-path "test-secrets/*.t.sol" -vv
+
+      - name: Comment on Player's PR (Success)
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: `🎉 **ACCESS GRANTED**!\n\nExcellent work commander. Your solution passed the hidden edge cases.\nLevel 2 has now been unlocked. Fetching the coordinates...`
+            });
+
+      - name: Push Level 2 to Player's Fork
+        if: success()
+        run: |
+          # Configure Git Identity
+          git config --global user.name 'The Central Judge Bot'
+          git config --global user.email 'judge@interstellar-vault.com'
+          
+          # Check if branch exists on origin (the fork)
+          if git ls-remote --exit-code --heads origin level-2; then
+             echo "Branch level-2 already exists in player fork. Stopping."
+             exit 0
+          fi
+          
+          git checkout -b level-2
+          
+          # Generate Level 2 Files
+          cat << 'EOF' > src/Level2.sol
+          // SPDX-License-Identifier: MIT
+          pragma solidity ^0.8.20;
+          contract Level2 {
+              mapping(address => uint256) public balances;
+              function deposit() external payable { balances[msg.sender] += msg.value; }
+              function withdraw(uint256 amount) external {
+                  require(balances[msg.sender] >= amount, "Insufficient Balance");
+                  balances[msg.sender] -= amount;
+                  (bool success, ) = msg.sender.call{value: amount}("");
+                  require(success, "Transfer Failed");
+              }
+          }
+          EOF
+          
+          cat << 'EOF' > test/Level2.t.sol
+          // SPDX-License-Identifier: MIT
+          pragma solidity ^0.8.20;
+          import "forge-std/Test.sol";
+          import "../src/Level2.sol";
+          contract Level2Test is Test {
+              Level2 public level2;
+              function setUp() public { level2 = new Level2(); }
+              function test_Deposit() public {
+                  vm.deal(address(this), 10 ether);
+                  level2.deposit{value: 1 ether}();
+                  assertEq(level2.balances(address(this)), 1 ether);
+              }
+          }
+          EOF
+          
+          git add src/Level2.sol test/Level2.t.sol
+          git commit -m "🚀 The Central Judge unlocked Level 2!"
+          
+          # Push directly to the player's fork (origin) because checkout used MASTER_PAT
+          git push -u origin level-2
+
+      - name: Comment on Player's PR (Level 2 Pushed)
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: `🚀 The \`level-2\` branch has been injected into your fork. \n\n\`git fetch origin\` and \`git checkout level-2\` locally to begin your next mission!`
+            });
+            // Close the PR since it passed this level
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              state: "closed"
+            });
+
+      - name: Comment on Player's PR (Failure)
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: `🛑 **ACCESS DENIED**.\n\nYour code successfully executed the public local tests locally, but it failed one or more hidden tests injected by the Central Judge.\n\nReview the "Execute The Judge" Logs above to see exactly where your contract reverted and refine your strategy.`
+            });
