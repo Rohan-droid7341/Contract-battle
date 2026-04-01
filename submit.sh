@@ -18,35 +18,50 @@ if [[ -z "$USERNAME" ]]; then
     exit 1
 fi
 
-if [ ! -f "src/Level1.sol" ]; then
-    echo "🛑 Aborting: src/Level1.sol not found."
+LEVEL=$1
+if [ -z "$LEVEL" ]; then
+    LEVEL=$(ls src/Level*.sol 2>/dev/null | grep -o '[0-9]\+' | sort -nr | head -n1)
+    if [ -z "$LEVEL" ]; then
+        echo "🛑 Aborting: No src/LevelX.sol file found."
+        exit 1
+    fi
+fi
+
+TARGET_FILE="src/Level${LEVEL}.sol"
+
+if [ ! -f "$TARGET_FILE" ]; then
+    echo "🛑 Aborting: $TARGET_FILE not found."
     exit 1
 fi
 
-echo "🚀 Bundling Level 1 module for Pilot: $USERNAME..."
+echo "🚀 Bundling Level $LEVEL module for Pilot: $USERNAME..."
 echo "📡 Transmitting module to Central Judge..."
 
 RESPONSE=$(curl -s -X POST "$JUDGE_URL" \
     --data-urlencode "username=$USERNAME" \
     --data-urlencode "repoOwner=$REPO_OWNER" \
     --data-urlencode "repoName=$REPO_NAME" \
-    --data-urlencode "code@src/Level1.sol")
+    --data-urlencode "level=$LEVEL" \
+    --data-urlencode "code@$TARGET_FILE")
 
 STATUS=$(echo "$RESPONSE" | grep "^STATUS=" | cut -d'=' -f2)
 
 if [ "$STATUS" == "SUCCESS" ]; then
     echo "🟢 ACCESS GRANTED! You have passed the hidden evaluation."
-    echo "📦 Extracting Level 2 payload..."
+    echo "📦 Extracting Level $((LEVEL+1)) payload..."
     
-    BODY_B64=$(echo "$RESPONSE" | grep "^LEVEL2=" | cut -d'=' -f2)
+    echo "$RESPONSE" | grep "^FILE_" | while IFS='=' read -r key val; do
+        filename=$(echo "$key" | sed 's/^FILE_//' | tr '@' '/')
+        mkdir -p "$(dirname "$filename")" 2>/dev/null || true
+        
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            echo "$val" | base64 --decode > "$filename"
+        else
+            echo "$val" | base64 -d > "$filename"
+        fi
+        echo "   ✅ $filename installed."
+    done
     
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        echo "$BODY_B64" | base64 --decode > src/Level2.sol
-    else
-        echo "$BODY_B64" | base64 -d > src/Level2.sol
-    fi
-    
-    echo "✅ src/Level2.sol installed locally."
     echo "🏆 Check the official repository to see your name on the Galactic Leaderboard!"
     exit 0
 else
