@@ -13,6 +13,7 @@
 | 6 | dhruvika05 | 4 | 2026-04-08 20:39:31 |
 | 7 | MayankSingh-07 | 1 | 2026-04-08 19:41:48 |
 | 8 | anujparwal | 1 | 2026-04-08 22:05:48 |
+| 9 | ridhirajvi27-dotcom | 1 | 2026-04-09 02:47:49 |
 <!-- LEADERBOARD_END -->
 
 ---
